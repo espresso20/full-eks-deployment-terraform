@@ -1,0 +1,15 @@
+# Terraform local state and working dirs
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfplan
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Sensitive variable files — copy terraform.tfvars.example and fill in your values
+# terraform.tfvars  (kept in repo — no secrets, profile name only)
+
+# macOS
+.DS_Store
