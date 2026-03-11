@@ -6,12 +6,11 @@
 #   2. Wait for ELBs to fully disappear  → so VPC ENIs are released
 #   3. Delete PVCs                       → deprovisions EBS volumes
 #   4. Run terraform destroy             → removes all remaining infrastructure
+#
+# All AWS config is read from terraform outputs — no hardcoded values.
 
 set -euo pipefail
 
-PROFILE="aws-sso-profile"
-REGION="us-east-1"
-CLUSTER_NAME="dev-eks"
 TF_VARS="terraform.tfvars"
 
 # ── Colours ───────────────────────────────────────────────────────────────────
@@ -20,6 +19,20 @@ info()    { echo -e "${BOLD}==>${NC} $*"; }
 success() { echo -e "${GREEN}✓${NC} $*"; }
 warn()    { echo -e "${YELLOW}⚠${NC}  $*"; }
 fatal()   { echo -e "${RED}✗${NC} $*"; exit 1; }
+
+# ── Prerequisites ─────────────────────────────────────────────────────────────
+for cmd in aws kubectl terraform; do
+  command -v "$cmd" &>/dev/null || fatal "$cmd not found in PATH"
+done
+
+# ── Read config from Terraform outputs ───────────────────────────────────────
+if ! terraform output &>/dev/null 2>&1; then
+  fatal "No terraform outputs found. Stack may already be destroyed."
+fi
+
+PROFILE=$(terraform output -raw aws_profile)
+REGION=$(terraform output  -raw aws_region)
+CLUSTER_NAME=$(terraform output -raw cluster_name)
 
 # ── Confirmation ──────────────────────────────────────────────────────────────
 echo ""
@@ -31,11 +44,6 @@ echo ""
 read -r -p "Type 'destroy' to confirm: " CONFIRM
 [[ "$CONFIRM" == "destroy" ]] || fatal "Aborted."
 echo ""
-
-# ── Prerequisites ─────────────────────────────────────────────────────────────
-for cmd in aws kubectl terraform; do
-  command -v "$cmd" &>/dev/null || fatal "$cmd not found in PATH"
-done
 
 # ── SSO session check ─────────────────────────────────────────────────────────
 info "Checking AWS SSO session..."
@@ -74,16 +82,6 @@ if [[ "$KUBECTL_OK" == "true" ]]; then
     # Terraform destroy will fail if VPC ENIs are still attached.
     info "Waiting for AWS to deprovision load balancers (this can take 2-3 min)..."
     for i in $(seq 1 36); do  # 36 x 5s = 3 min max
-      ELB_COUNT=$(aws elb describe-load-balancers \
-        --profile "$PROFILE" --region "$REGION" \
-        --query "length(LoadBalancerDescriptions[?contains(VPCId, '')])" \
-        --output text 2>/dev/null || echo "0")
-      NLB_COUNT=$(aws elbv2 describe-load-balancers \
-        --profile "$PROFILE" --region "$REGION" \
-        --query "length(LoadBalancers[?State.Code!='active' || State.Code=='active'])" \
-        --output text 2>/dev/null || echo "0")
-
-      # Simpler: just check if any ELB/NLB tags reference our cluster
       CLUSTER_ELBS=$(aws elbv2 describe-load-balancers \
         --profile "$PROFILE" --region "$REGION" \
         --query "LoadBalancers[*].LoadBalancerArn" \
@@ -120,7 +118,7 @@ if [[ "$KUBECTL_OK" == "true" ]]; then
     success "No PVCs found"
   fi
 
-  # ── Delete app namespace resources ────────────────────────────────────────────
+  # ── Delete app resources ──────────────────────────────────────────────────────
   info "Deleting application deployments and services..."
   kubectl delete deployment,service,ingress --all -n default --ignore-not-found 2>/dev/null || true
 fi

@@ -8,19 +8,19 @@ Full-stack Terraform deployment of a budget-conscious AWS EKS dev cluster for de
 
 ## Auth — AWS SSO
 
-This project uses the `aroffler-dev-admin-access` SSO profile. Before any Terraform or AWS CLI command, run:
+This project uses the `aws-sso-profile` SSO profile. Before any Terraform or AWS CLI command, run:
 
 ```bash
-aws sso login --profile aroffler-dev-admin-access
+aws sso login --profile aws-sso-profile
 ```
 
-The `provider "aws"` block reads the profile from `var.aws_profile` (defaults to `aroffler-dev-admin-access`). No hardcoded credentials.
+The `provider "aws"` block reads the profile from `var.aws_profile` (defaults to `aws-sso-profile`). No hardcoded credentials.
 
 ## Common Commands
 
 ```bash
 # First-time setup
-aws sso login --profile aroffler-dev-admin-access
+aws sso login --profile aws-sso-profile
 terraform init
 
 # Day-to-day
@@ -30,7 +30,7 @@ terraform plan -var-file="terraform.tfvars"
 terraform apply -var-file="terraform.tfvars"
 
 # Configure kubectl after apply (the exact command is in the 'kubeconfig_command' output)
-aws eks update-kubeconfig --region us-east-1 --name dev-eks --profile aroffler-dev-admin-access
+aws eks update-kubeconfig --region us-east-1 --name dev-eks --profile aws-sso-profile
 
 # Tear down
 terraform destroy -var-file="terraform.tfvars"

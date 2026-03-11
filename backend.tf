@@ -17,6 +17,6 @@ terraform {
     use_lockfile = true
     # dynamodb_table = "<your-lock-table>"
     encrypt = true
-    profile = "aroffler-dev-admin-access"
+    profile = "aws-sso-profile"
   }
 }

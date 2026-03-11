@@ -38,6 +38,16 @@ output "node_role_arn" {
   value       = module.eks.node_role_arn
 }
 
+output "aws_region" {
+  description = "AWS region — read by scripts via terraform output"
+  value       = var.aws_region
+}
+
+output "aws_profile" {
+  description = "AWS SSO profile — read by scripts via terraform output"
+  value       = var.aws_profile
+}
+
 output "kubeconfig_command" {
   description = "Run this command to configure kubectl after apply"
   value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name} --profile ${var.aws_profile}"

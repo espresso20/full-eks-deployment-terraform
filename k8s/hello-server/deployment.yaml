@@ -17,8 +17,9 @@ spec:
     spec:
       containers:
         - name: hello-server
-          # Replaced by push-and-deploy.sh — do not edit this line manually
-          image: 899060413090.dkr.ecr.us-east-1.amazonaws.com/hello-server:remediated
+          # Image is set at deploy time by push-and-deploy.sh via kubectl set image.
+          # This placeholder is never used directly.
+          image: placeholder/hello-server:latest
           ports:
             - containerPort: 8080
           resources:

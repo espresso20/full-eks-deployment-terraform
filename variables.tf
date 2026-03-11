@@ -5,9 +5,8 @@ variable "aws_region" {
 }
 
 variable "aws_profile" {
-  description = "AWS CLI SSO profile name"
+  description = "AWS CLI SSO profile name (set in terraform.tfvars)"
   type        = string
-  default     = "aroffler-dev-admin-access"
 }
 
 variable "cluster_name" {

@@ -61,15 +61,20 @@ A complete, budget-conscious AWS EKS development cluster built with Terraform. D
 
 ## Quick Start
 
-### 1. Configure your SSO profile
+`terraform.tfvars` is the only file you need to edit. All scripts read their config from `terraform output` at runtime — no values are hardcoded anywhere else.
 
-Edit `terraform.tfvars` and set your profile:
+### 1. Configure terraform.tfvars
 
 ```hcl
-aws_profile = "your-sso-profile-name"
+aws_region  = "us-east-1"
+aws_profile = "your-sso-profile-name"  # your AWS SSO profile
+
+cluster_name    = "dev-eks"
+cluster_version = "1.31"
+...
 ```
 
-Log in before running any commands:
+Log in to AWS SSO before running any commands:
 
 ```bash
 aws sso login --profile your-sso-profile-name
@@ -87,34 +92,24 @@ terraform init
 terraform apply -var-file="terraform.tfvars"
 ```
 
-Takes ~12–15 minutes. The EKS cluster and node group are the slow parts.
+Takes ~12–15 minutes. The EKS cluster and node group are the slow parts. When complete, kubectl is configured automatically by the deploy script.
 
-### 4. Configure kubectl
-
-```bash
-aws eks update-kubeconfig \
-  --region us-east-1 \
-  --name dev-eks \
-  --profile your-sso-profile-name
-```
-
-Or copy the exact command from the `kubeconfig_command` output.
-
-### 5. Deploy an application
+### 4. Deploy an application
 
 Build your image for `linux/amd64` (required — nodes are x86_64):
 
 ```bash
-docker buildx build --platform linux/amd64 -t hello-server:remediated .
+docker buildx build --platform linux/amd64 -t hello-server:latest .
 ```
 
 Push to ECR and deploy to the cluster:
 
 ```bash
-./push-and-deploy.sh
+./push-and-deploy.sh                        # uses hello-server:latest
+./push-and-deploy.sh myimage:tag v2.0       # custom image + ECR tag
 ```
 
-The script authenticates Docker with ECR, pushes the image, applies the Kubernetes manifests, and waits for the rollout to complete.
+The script reads your profile, region, cluster name, and ECR URL from `terraform output` — then authenticates Docker, pushes the image, applies the Kubernetes manifests, and waits for the rollout.
 
 ---
 
