@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROFILE="aroffler-dev-admin-access"
+PROFILE="aws-sso-profile"
 REGION="us-east-1"
-ACCOUNT="899060413090"
+ACCOUNT="ACCOUNT-NUMBER"
 REPO="hello-server"
 ECR_URL="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com/${REPO}"
-LOCAL_IMAGE="${1:-hello-server:remediated}"
+LOCAL_IMAGE="${1:-hello-server:latest}"
 TAG="${2:-remediated}"
 
 echo "==> Authenticating Docker with ECR..."

@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-PROFILE="aroffler-dev-admin-access"
+PROFILE="aws-sso-profile"
 REGION="us-east-1"
 CLUSTER_NAME="dev-eks"
 TF_VARS="terraform.tfvars"
