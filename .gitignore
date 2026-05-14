@@ -1,15 +1,28 @@
-# Terraform local state and working dirs
-.terraform/
-terraform.tfstate
-terraform.tfstate.backup
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/terraform.tfvars
 *.tfplan
-
-# Crash logs
 crash.log
 crash.*.log
 
-# Sensitive variable files — copy terraform.tfvars.example and fill in your values
-# terraform.tfvars  (kept in repo — no secrets, profile name only)
-
-# macOS
+# OS
 .DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Backup files from sed -i
+*.bak

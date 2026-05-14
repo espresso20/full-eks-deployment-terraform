@@ -1,0 +1,48 @@
+# Apply manually with: kubectl apply -f optional/cluster-issuer.yaml
+# (After cert-manager is healthy and its CRDs exist.)
+#
+# This gives you a self-signed issuer for lab work. For real Let's Encrypt
+# certs, see the commented sections below.
+
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned
+spec:
+  selfSigned: {}
+
+---
+
+# Uncomment and use AFTER you set up:
+#   - external-dns + Route53 (or manual DNS) pointing at your ingress-nginx NLB
+#   - A real domain
+#
+# apiVersion: cert-manager.io/v1
+# kind: ClusterIssuer
+# metadata:
+#   name: letsencrypt-staging
+# spec:
+#   acme:
+#     server: https://acme-staging-v02.api.letsencrypt.org/directory
+#     email: adam@adamroffler.com
+#     privateKeySecretRef:
+#       name: letsencrypt-staging
+#     solvers:
+#       - http01:
+#           ingress:
+#             ingressClassName: nginx
+# ---
+# apiVersion: cert-manager.io/v1
+# kind: ClusterIssuer
+# metadata:
+#   name: letsencrypt-prod
+# spec:
+#   acme:
+#     server: https://acme-v02.api.letsencrypt.org/directory
+#     email: adam@adamroffler.com
+#     privateKeySecretRef:
+#       name: letsencrypt-prod
+#     solvers:
+#       - http01:
+#           ingress:
+#             ingressClassName: nginx

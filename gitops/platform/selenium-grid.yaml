@@ -1,0 +1,57 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: selenium-grid
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  source:
+    repoURL: https://www.selenium.dev/docker-selenium
+    chart: selenium-grid
+    targetRevision: 0.36.0
+    helm:
+      releaseName: selenium
+      values: |
+        # Use the distributed grid topology (Hub + separate Router/Distributor)
+        # instead of standalone — production pattern.
+        isolateComponents: true
+        # Browser node pools
+        chromeNode:
+          enabled: true
+          replicas: 1
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1
+              memory: 1Gi
+          # KEDA-based autoscaling on session queue depth — uncomment after
+          # installing KEDA. For lab, fixed replicas are fine.
+          # autoscaling:
+          #   enableWithExistingKEDA: true
+          #   scalingType: deployment
+          #   minReplicas: 1
+          #   maxReplicas: 10
+        firefoxNode:
+          enabled: false
+        edgeNode:
+          enabled: false
+        # Disable video recording — saves resources for lab
+        videoRecorder:
+          enabled: false
+        # Don't expose externally — port-forward to test it
+        ingress:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: selenium
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

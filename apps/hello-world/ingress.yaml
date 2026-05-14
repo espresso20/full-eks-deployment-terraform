@@ -1,0 +1,30 @@
+# Replace LB_HOSTNAME after deploy with your actual ingress-nginx NLB hostname
+# (use sslip.io for a wildcard DNS hack: HOSTNAME.sslip.io resolves automatically).
+#
+# Example: a1b2c3.elb.us-west-2.amazonaws.com → hello.a1b2c3.sslip.io
+#
+# Get your NLB hostname:
+#   kubectl get svc -n ingress-nginx ingress-nginx-controller \
+#     -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+#
+# This file is set up for the "no domain" path. You can sed-replace LB_HOSTNAME
+# with your actual hostname, OR just port-forward the ingress service to test.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: hello.LB_HOSTNAME.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hello
+                port:
+                  number: 8080

@@ -1,0 +1,52 @@
+# This is the standard Karpenter demo workload.
+# Each pod requests 1 CPU and 1Gi RAM with no actual work.
+# Scale the replica count up and watch Karpenter spin nodes from spot capacity:
+#
+#   kubectl apply -f karpenter-test/inflate.yaml
+#   kubectl scale deployment inflate --replicas=20
+#   kubectl get nodes -w
+#   kubectl logs -f -n kube-system -l app.kubernetes.io/name=karpenter
+#
+# Then scale down and watch consolidation:
+#
+#   kubectl scale deployment inflate --replicas=0
+#   # Within ~30s, Karpenter starts terminating empty nodes
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inflate
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: inflate
+  template:
+    metadata:
+      labels:
+        app: inflate
+    spec:
+      # Anti-affinity ensures pods spread across nodes (forces Karpenter to scale wide).
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: inflate
+                topologyKey: kubernetes.io/hostname
+      # Only schedule on Karpenter-managed nodes, not bootstrap nodes.
+      nodeSelector:
+        nodepool: default
+      containers:
+        - name: pause
+          image: public.ecr.aws/eks-distro/kubernetes/pause:3.7
+          resources:
+            requests:
+              cpu: 1
+              memory: 1Gi
+            limits:
+              cpu: 1
+              memory: 1Gi
+      terminationGracePeriodSeconds: 0
