@@ -27,10 +27,5 @@ terraform {
   # Uncomment and configure if you want remote state.
   # For lab usage, local state is fine.
   #
-  # backend "s3" {
-  #   bucket  = "your-tfstate-bucket"
-  #   key     = "platform-lab/terraform.tfstate"
-  #   region  = "us-west-2"
-  #   encrypt = true
-  # }
+  backend "s3" {}
 }

@@ -1,0 +1,5 @@
+bucket  = "your-terraform-state-bucket"
+key     = "platform-lab/terraform.tfstate"
+region  = "us-east-1"
+encrypt = true
+profile = "your-aws-sso-profile"

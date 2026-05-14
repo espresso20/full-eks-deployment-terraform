@@ -75,7 +75,7 @@ resource "kubectl_manifest" "karpenter_ec2nodeclass_default" {
         - alias: al2023@latest
       tags:
         karpenter.sh/discovery: ${var.cluster_name}
-        Project: platform-lab
+        Project: ${var.cluster_name}
   YAML
 
   depends_on = [helm_release.karpenter]

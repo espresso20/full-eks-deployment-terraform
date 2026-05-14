@@ -1,0 +1,15 @@
+region          = "us-east-1"
+aws_profile     = "your-aws-sso-profile"
+cluster_name    = "my-cluster"
+cluster_version = "1.31"
+vpc_cidr        = "10.0.0.0/16"
+
+gitops_repo_url    = "https://github.com/YOUR_USERNAME/YOUR_REPO.git"
+gitops_repo_branch = "main"
+
+tags = {
+  Project     = "my-cluster"
+  Environment = "dev"
+  ManagedBy   = "terraform"
+  Owner       = "you"
+}

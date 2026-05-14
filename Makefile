@@ -1,0 +1,147 @@
+# =============================================================================
+#  EKS Platform Lab — Terraform Makefile
+#  Usage:  make <command> <env> [target='resource'] [auto=true]
+#  Envs:   dev | staging | prod
+# =============================================================================
+
+# ── colours ──────────────────────────────────────────────────────────────────
+BOLD  := \033[1m
+CYAN  := \033[36m
+GREEN := \033[32m
+YELLOW:= \033[33m
+RED   := \033[31m
+RESET := \033[0m
+
+# ── config ────────────────────────────────────────────────────────────────────
+ENV   := $(word 2,$(MAKECMDGOALS))
+TFDIR := terraform
+
+# Optional flags — pass on the command line:
+#   target='module.karpenter'   → scopes plan/apply/destroy to one resource
+#   auto=true                   → adds -auto-approve (skips interactive prompt)
+TARGET_FLAG  := $(if $(target),-target=$(target),)
+APPROVE_FLAG := $(if $(auto),-auto-approve,)
+
+# Paths are resolved relative to $(TFDIR) because we use -chdir
+BACKEND_VARS := env/$(ENV)/$(ENV).backend.tfvars
+TF_VARS      := env/$(ENV)/$(ENV).terraform.tfvars
+
+# ── guard: require ENV ────────────────────────────────────────────────────────
+define require-env
+	@[ -n "$(ENV)" ] || { \
+		printf "$(RED)$(BOLD)error:$(RESET) no environment specified.\n"; \
+		printf "  usage: $(CYAN)make $(1) <env>$(RESET)\n"; \
+		printf "  envs:  dev | staging | prod\n"; \
+		exit 1; \
+	}
+endef
+
+# ── help (default target) ─────────────────────────────────────────────────────
+.DEFAULT_GOAL := help
+
+.PHONY: help
+help:
+	@printf "\n$(BOLD)$(CYAN)EKS Platform Lab$(RESET) — Terraform wrapper\n\n"
+	@printf "$(BOLD)Usage:$(RESET)\n"
+	@printf "  make $(CYAN)<command> <env>$(RESET) $(YELLOW)[target='resource'] [auto=true]$(RESET)\n\n"
+	@printf "$(BOLD)Commands:$(RESET)\n"
+	@printf "  $(CYAN)init$(RESET)      <env>                  Init backend for the given environment\n"
+	@printf "  $(CYAN)plan$(RESET)      <env>                  Preview changes\n"
+	@printf "  $(CYAN)apply$(RESET)     <env>                  Apply changes (prompts for confirmation)\n"
+	@printf "  $(CYAN)destroy$(RESET)   <env>                  Tear down infrastructure\n"
+	@printf "  $(CYAN)validate$(RESET)  <env>                  Validate configuration\n"
+	@printf "  $(CYAN)fmt$(RESET)                              Format all .tf files in-place\n\n"
+	@printf "$(BOLD)Environments:$(RESET)\n"
+	@printf "  dev | staging | prod\n\n"
+	@printf "$(BOLD)Options:$(RESET)\n"
+	@printf "  $(YELLOW)target='module.foo'$(RESET)            Scope to a single resource or module\n"
+	@printf "  $(YELLOW)auto=true$(RESET)                      Skip interactive approval prompt\n\n"
+	@printf "$(BOLD)Examples:$(RESET)\n"
+	@printf "  make init    dev\n"
+	@printf "  make plan    dev\n"
+	@printf "  make plan    dev  target='module.eks'\n"
+	@printf "  make apply   dev\n"
+	@printf "  make apply   dev  auto=true\n"
+	@printf "  make destroy dev  target='module.karpenter'  auto=true\n\n"
+	@printf "$(BOLD)First-time setup:$(RESET)\n"
+	@printf "  cp terraform/env/dev/dev.backend.tfvars.example    terraform/env/dev/dev.backend.tfvars\n"
+	@printf "  cp terraform/env/dev/dev.terraform.tfvars.example  terraform/env/dev/dev.terraform.tfvars\n"
+	@printf "  # edit both files, then:\n"
+	@printf "  aws sso login --profile <your-profile>\n"
+	@printf "  make init dev\n\n"
+
+# ── init ──────────────────────────────────────────────────────────────────────
+# Initialises the S3 backend for the target environment.
+# Use -reconfigure so switching envs doesn't require manual state migration.
+.PHONY: init
+init:
+	$(call require-env,init)
+	@printf "\n$(BOLD)$(CYAN)» init$(RESET) — environment: $(BOLD)$(ENV)$(RESET)\n\n"
+	terraform -chdir=$(TFDIR) init \
+		-backend-config=$(BACKEND_VARS) \
+		-reconfigure
+	@printf "\n$(GREEN)✓ init complete$(RESET)\n\n"
+
+# ── plan ──────────────────────────────────────────────────────────────────────
+.PHONY: plan
+plan:
+	$(call require-env,plan)
+	@printf "\n$(BOLD)$(CYAN)» plan$(RESET) — environment: $(BOLD)$(ENV)$(RESET)"
+	@[ -z "$(target)" ] || printf "  target: $(YELLOW)$(target)$(RESET)"
+	@printf "\n\n"
+	terraform -chdir=$(TFDIR) plan \
+		-var-file=$(TF_VARS) \
+		$(TARGET_FLAG)
+	@printf "\n$(GREEN)✓ plan complete$(RESET)\n\n"
+
+# ── apply ─────────────────────────────────────────────────────────────────────
+# Omit auto=true to get Terraform's interactive approval prompt (recommended).
+.PHONY: apply
+apply:
+	$(call require-env,apply)
+	@printf "\n$(BOLD)$(CYAN)» apply$(RESET) — environment: $(BOLD)$(ENV)$(RESET)"
+	@[ -z "$(target)" ] || printf "  target: $(YELLOW)$(target)$(RESET)"
+	@[ -z "$(auto)"   ] || printf "  $(RED)auto-approve$(RESET)"
+	@printf "\n\n"
+	terraform -chdir=$(TFDIR) apply \
+		-var-file=$(TF_VARS) \
+		$(TARGET_FLAG) \
+		$(APPROVE_FLAG)
+	@printf "\n$(GREEN)✓ apply complete$(RESET)\n\n"
+
+# ── destroy ───────────────────────────────────────────────────────────────────
+# Destroys all resources in the environment. Be careful.
+.PHONY: destroy
+destroy:
+	$(call require-env,destroy)
+	@printf "\n$(BOLD)$(RED)» destroy$(RESET) — environment: $(BOLD)$(ENV)$(RESET)"
+	@[ -z "$(target)" ] || printf "  target: $(YELLOW)$(target)$(RESET)"
+	@[ -z "$(auto)"   ] || printf "  $(RED)auto-approve$(RESET)"
+	@printf "\n\n"
+	terraform -chdir=$(TFDIR) destroy \
+		-var-file=$(TF_VARS) \
+		$(TARGET_FLAG) \
+		$(APPROVE_FLAG)
+	@printf "\n$(GREEN)✓ destroy complete$(RESET)\n\n"
+
+# ── validate ──────────────────────────────────────────────────────────────────
+.PHONY: validate
+validate:
+	$(call require-env,validate)
+	@printf "\n$(BOLD)$(CYAN)» validate$(RESET) — environment: $(BOLD)$(ENV)$(RESET)\n\n"
+	terraform -chdir=$(TFDIR) validate
+	@printf "\n$(GREEN)✓ validate complete$(RESET)\n\n"
+
+# ── fmt ───────────────────────────────────────────────────────────────────────
+# Formats all .tf files recursively. Safe to run at any time.
+.PHONY: fmt
+fmt:
+	@printf "\n$(BOLD)$(CYAN)» fmt$(RESET) — formatting terraform/\n\n"
+	terraform -chdir=$(TFDIR) fmt -recursive
+	@printf "\n$(GREEN)✓ fmt complete$(RESET)\n\n"
+
+# ── env name no-ops ───────────────────────────────────────────────────────────
+# Prevents make from treating env names as unknown targets.
+.PHONY: dev staging prod
+dev staging prod:
+	@:
