@@ -16,10 +16,15 @@ RESET := \033[0m
 ENV   := $(word 2,$(MAKECMDGOALS))
 TFDIR := terraform
 
+# Shared cloud preflight (CLI detect/install + auth) lives in a sibling repo.
+# Override if yours sits elsewhere:  make plan dev BOOTSTRAPER=/path/to/cloud-bootstraper
+BOOTSTRAPER ?= ../cloud-bootstraper
+PREFLIGHT   := $(BOOTSTRAPER)/cloud-preflight.sh
+
 # Optional flags — pass on the command line:
-#   target='module.karpenter'   → scopes plan/apply/destroy to one resource
-#   auto=true                   → adds -auto-approve (skips interactive prompt)
-TARGET_FLAG  := $(if $(target),-target=$(target),)
+#   target='module.vpc module.eks'  → scopes plan/apply/destroy to one or more resources
+#   auto=true                        → adds -auto-approve (skips interactive prompt)
+TARGET_FLAG  := $(foreach t,$(target),-target=$(t))
 APPROVE_FLAG := $(if $(auto),-auto-approve,)
 
 # Paths are resolved relative to $(TFDIR) because we use -chdir
@@ -45,6 +50,7 @@ help:
 	@printf "$(BOLD)Usage:$(RESET)\n"
 	@printf "  make $(CYAN)<command> <env>$(RESET) $(YELLOW)[target='resource'] [auto=true]$(RESET)\n\n"
 	@printf "$(BOLD)Commands:$(RESET)\n"
+	@printf "  $(CYAN)auth$(RESET)      <env>                  Ensure AWS CLI is installed and your SSO session is live\n"
 	@printf "  $(CYAN)init$(RESET)      <env>                  Init backend for the given environment\n"
 	@printf "  $(CYAN)plan$(RESET)      <env>                  Preview changes\n"
 	@printf "  $(CYAN)apply$(RESET)     <env>                  Apply changes (prompts for confirmation)\n"
@@ -54,12 +60,13 @@ help:
 	@printf "$(BOLD)Environments:$(RESET)\n"
 	@printf "  dev | staging | prod\n\n"
 	@printf "$(BOLD)Options:$(RESET)\n"
-	@printf "  $(YELLOW)target='module.foo'$(RESET)            Scope to a single resource or module\n"
+	@printf "  $(YELLOW)target='module.foo module.bar'$(RESET)  Scope to one or more resources/modules\n"
 	@printf "  $(YELLOW)auto=true$(RESET)                      Skip interactive approval prompt\n\n"
 	@printf "$(BOLD)Examples:$(RESET)\n"
 	@printf "  make init    dev\n"
 	@printf "  make plan    dev\n"
 	@printf "  make plan    dev  target='module.eks'\n"
+	@printf "  make plan    dev  target='module.vpc module.eks module.karpenter'\n"
 	@printf "  make apply   dev\n"
 	@printf "  make apply   dev  auto=true\n"
 	@printf "  make destroy dev  target='module.karpenter'  auto=true\n\n"
@@ -70,11 +77,28 @@ help:
 	@printf "  aws sso login --profile <your-profile>\n"
 	@printf "  make init dev\n\n"
 
+# ── preflight (auth) ──────────────────────────────────────────────────────────
+# Ensures the AWS CLI is installed (offers to install) and that your SSO session
+# is live. Runs automatically before init/plan/apply/destroy; also callable
+# directly as `make auth <env>`. Shared across clouds via cloud-bootstraper.
+.PHONY: preflight auth
+auth: preflight
+preflight:
+	$(call require-env,auth)
+	@[ -x "$(PREFLIGHT)" ] || { \
+		printf "$(RED)$(BOLD)error:$(RESET) cloud preflight not found: $(PREFLIGHT)\n"; \
+		printf "  clone it next to this repo:  git clone https://github.com/espresso20/cloud-bootstraper.git $(BOOTSTRAPER)\n"; \
+		printf "  or point at it:  make ... BOOTSTRAPER=/path/to/cloud-bootstraper\n"; \
+		exit 1; \
+	}
+	@prof=$$(sed -n -E 's/^[[:space:]]*aws_profile[[:space:]]*=[[:space:]]*"?([^"]*)"?.*/\1/p' "$(TFDIR)/$(TF_VARS)" | head -1); \
+		"$(PREFLIGHT)" aws "$$prof"
+
 # ── init ──────────────────────────────────────────────────────────────────────
 # Initialises the S3 backend for the target environment.
 # Use -reconfigure so switching envs doesn't require manual state migration.
 .PHONY: init
-init:
+init: preflight
 	$(call require-env,init)
 	@printf "\n$(BOLD)$(CYAN)» init$(RESET) — environment: $(BOLD)$(ENV)$(RESET)\n\n"
 	terraform -chdir=$(TFDIR) init \
@@ -84,7 +108,7 @@ init:
 
 # ── plan ──────────────────────────────────────────────────────────────────────
 .PHONY: plan
-plan:
+plan: preflight
 	$(call require-env,plan)
 	@printf "\n$(BOLD)$(CYAN)» plan$(RESET) — environment: $(BOLD)$(ENV)$(RESET)"
 	@[ -z "$(target)" ] || printf "  target: $(YELLOW)$(target)$(RESET)"
@@ -97,7 +121,7 @@ plan:
 # ── apply ─────────────────────────────────────────────────────────────────────
 # Omit auto=true to get Terraform's interactive approval prompt (recommended).
 .PHONY: apply
-apply:
+apply: preflight
 	$(call require-env,apply)
 	@printf "\n$(BOLD)$(CYAN)» apply$(RESET) — environment: $(BOLD)$(ENV)$(RESET)"
 	@[ -z "$(target)" ] || printf "  target: $(YELLOW)$(target)$(RESET)"
@@ -112,7 +136,7 @@ apply:
 # ── destroy ───────────────────────────────────────────────────────────────────
 # Destroys all resources in the environment. Be careful.
 .PHONY: destroy
-destroy:
+destroy: preflight
 	$(call require-env,destroy)
 	@printf "\n$(BOLD)$(RED)» destroy$(RESET) — environment: $(BOLD)$(ENV)$(RESET)"
 	@[ -z "$(target)" ] || printf "  target: $(YELLOW)$(target)$(RESET)"
